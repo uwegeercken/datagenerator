@@ -37,7 +37,7 @@
 <!-- reference fields do not need a length attribute except from reference fields of type regex and random. each       -->
 <!-- reference fields needs to have an attribute of "id" specified.                                                    -->
 
-<!-- reference fields can also use other reference fields. make sure you do create circular references.                -->                                                             -->
+<!-- reference fields can also use other reference fields. make sure you do NOT create circular references.                -->                                                             -->
 
 <xml> 
 	<references>
