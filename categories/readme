@@ -1,0 +1,13 @@
+
+the folders in this directory contain the category files containing word list,
+that may be used to generate random data.
+
+feel free to create more category files - also for other languages. just create
+additional subfolders in this case. category files contain one word or expression
+per row and may be referenced in the rowlayout file. read the documentation for
+more details.
+
+uwe geercken - uwe.geercken@datamelt.com
+
+last update: 2007/11/30
+
