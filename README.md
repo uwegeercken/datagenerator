@@ -5,6 +5,7 @@ Java command line tool to generate mass data based on word lists (multiple langu
 
 Data is generated in CSV or fixed length ASCII format. The format and type of the data is defined in the rowlayout.xml file. See the documentation PDF file for detailed instructions.
 
+Uses Apache Xerces for regular expression parsing.
 
    Copyright (C) 2008-2014  Uwe Geercken
     
