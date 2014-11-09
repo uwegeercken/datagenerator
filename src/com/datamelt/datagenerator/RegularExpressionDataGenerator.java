@@ -2,7 +2,7 @@ package com.datamelt.datagenerator;
 
 import java.util.Random;
 
-import com.sun.org.apache.xerces.internal.impl.xpath.regex.RegularExpression;
+import org.apache.xerces.impl.xpath.regex.RegularExpression;
 
 /**
  * class is used to generate random test data based on a given regular expression.<br />

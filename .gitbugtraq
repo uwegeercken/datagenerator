@@ -1,0 +1,6 @@
+[bugtraq "mantis"]
+   url = http://localhost/mantis/view.php?id=%BUGID%
+   loglinkregex = "[Ii]ssue[-#:\\s]{1}\\d+"
+   logregex = "\\d+"
+   loglinktext = mantis-%BUGID%
+

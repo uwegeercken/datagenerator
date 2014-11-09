@@ -1,11 +1,8 @@
 
 package com.datamelt.datagenerator.output;
 
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Random;
-
 import com.datamelt.datagenerator.RegularExpressionDataGenerator;
+import com.datamelt.datagenerator.util.Generator;
 
 /**
  * a field object defines a field of a row in an output ASCII file.
@@ -16,7 +13,7 @@ import com.datamelt.datagenerator.RegularExpressionDataGenerator;
 public class Field
 {
 	private int type;
-	private int length;
+	private int length = -1;
 	private boolean fillWithSpaces;
 	private String value;
 	private String category;
@@ -24,14 +21,20 @@ public class Field
 	private String id;
 	private String reference;
 	private long dateTimeMilliseconds;
+	private boolean output = true; // per default all fields will be output
+	private boolean referenceField=false;
+	private boolean valueGenerated=false; // steers if a value should be re-generated or not
+	
 	
 	private static final String POSSIBLE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890";
 	private static String possibleCharacters        = POSSIBLE_CHARACTERS;
+	private static final String spaceCharacter      = " ";
 	
 	public static final int TYPE_CATEGORY           = 0;
 	public static final int TYPE_RANDOM             = 1;
 	public static final int TYPE_REGEX              = 2;
 	public static final int TYPE_DATETIME           = 3;
+	public static final int TYPE_REFERENCE          = 4;
 	
 	/**
 	 * default constructor
@@ -64,7 +67,7 @@ public class Field
 	}
 	
 	/**
-	 * sets the value of a field. in case of a fixed length file, if the 
+	 * used for category fields. in case of a fixed length file, if the 
 	 * length of the value is shorter than the specified length of the field
 	 * then spaces are added to the end.
 	 * 
@@ -73,18 +76,7 @@ public class Field
 	 */
 	public void setValue(String value)
 	{
-		// no category means we do not take a word from the list of
-		// available word, but generate a word randomly
-		if(type==TYPE_RANDOM)
-		{
-			generateRandomValue();
-		}
-		else if(type==TYPE_REGEX)
-		{
-			generateRegularExpressionValue();
-		}
-		
-		if(value.length()>length)
+		if(value.length()>length && length!=-1)
 		{
 			this.value = value.substring(0,length);
 		}
@@ -93,13 +85,11 @@ public class Field
 			StringBuffer buffer = new StringBuffer(value);
 			if(fillWithSpaces)
 			{
-				
 				int numberOfSpaces = length - value.length();
 				for(int i=0;i<numberOfSpaces;i++)
 				{
-					buffer.append(" ");
+					buffer.append(spaceCharacter);
 				}
-				
 			}
 			this.value = buffer.toString();
 		}
@@ -115,15 +105,7 @@ public class Field
 	 */
 	public void generateRandomValue()
 	{
-		int possibilities = possibleCharacters.length();
-		StringBuffer generatedString = new StringBuffer();
-		for (int i=0;i<length;i++)
-		{
-			Random rand = new Random();
-			int position = rand.nextInt(possibilities);
-			generatedString.append(possibleCharacters.substring(position,position+1));
-		}
-		value=generatedString.toString();
+		value = Generator.generateRandomValue(possibleCharacters, length);
 	}
 	
 	/**
@@ -138,43 +120,18 @@ public class Field
 	
 	/**
 	 * method generates a value based on the date/time pattern provided
-	 * and up to the length of the field as specified.
-	 * Formatting must be according to the java SimpleDateFormat class.
 	 * The minimumMilliSeconds and the maximumMilliseconds are the minimum
 	 * and maximum long values for the date/time.
 	 */
 	public void generateDateTimeValue(long minimumMilliSeconds, long maximumMilliSeconds)
 	{
-		
-		
-		// generate a random long value
-		Random rand = new Random();
-			
-		// calculate a new random long using the modulo operator and the
-		// two values
-		long randomMilliseconds;
-		do
-		{
-			randomMilliseconds = rand.nextLong() % maximumMilliSeconds;
-			
-		} while (randomMilliseconds<minimumMilliSeconds);
-
-		dateTimeMilliseconds = randomMilliseconds;
-		
+		dateTimeMilliseconds = Generator.getRandomMilliseconds(minimumMilliSeconds, maximumMilliSeconds);
 	}
 	
-	public void formatDateTimeValue()
+	public String formatDateTimeValue()
 	{
-		// use the SimpleDateFormat class for formatting
-		SimpleDateFormat sdf = new SimpleDateFormat(pattern);
-		
-		// get the current date in milliseconds
-		Calendar cal = Calendar.getInstance();
-		// set the new random date
-		cal.setTimeInMillis(dateTimeMilliseconds);
-		
 		// format the random date with the given pattern
-		value = sdf.format(cal.getTime());
+		return Generator.formatDateTimeValue(dateTimeMilliseconds, pattern);
 	}
 	
 	/**
@@ -288,7 +245,8 @@ public class Field
 	 * returns the id of the field
 	 * 
 	 */
-	public String getId() {
+	public String getId()
+	{
 		return id;
 	}
 
@@ -297,7 +255,8 @@ public class Field
 	 * identify a field
 	 * 
 	 */
-	public void setId(String id) {
+	public void setId(String id) 
+	{
 		this.id = id;
 	}
 
@@ -330,5 +289,33 @@ public class Field
 	{
 		this.dateTimeMilliseconds = dateTimeMilliseconds;
 	}
-	
+
+	public boolean getOutput()
+	{
+		return output;
+	}
+
+	public void setOutput(boolean output)
+	{
+		this.output = output;
+	}
+
+	public boolean getReferenceField()
+	{
+		return referenceField;
+	}
+
+	public void setReferenceField(boolean referenceField)
+	{
+		this.referenceField = referenceField;
+	}
+	public boolean getValueGenerated()
+	{
+		return valueGenerated;
+	}
+
+	public void setValueGenerated(boolean valueGenerated)
+	{
+		this.valueGenerated = valueGenerated;
+	}
 }
