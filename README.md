@@ -5,7 +5,9 @@ Java command line tool to generate mass data based on word lists (multiple langu
 
 Data is generated in CSV or fixed length ASCII format. The format and type of the data is defined in the rowlayout.xml file. See the documentation PDF file for detailed instructions.
 
-   Copyright (C) 2008-2014  Uwe Geercken
+The Zip file contains a sample usage to get you going.
+
+   Copyright (C) 2008-2015  Uwe Geercken
     
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -23,5 +25,5 @@ Data is generated in CSV or fixed length ASCII format. The format and type of th
 uwe geercken
 uwe.geercken@web.de
 
-last update: 2014-07-28
+last update: 2015-04-11
 
