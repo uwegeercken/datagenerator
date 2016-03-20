@@ -2,8 +2,6 @@ package com.datamelt.datagenerator;
 
 import java.util.Random;
 
-import com.sun.org.apache.xerces.internal.impl.xpath.regex.RegularExpression;
-
 /**
  * class is used to generate random test data based on a given regular expression.<br />
  * <br />
@@ -25,7 +23,7 @@ import com.sun.org.apache.xerces.internal.impl.xpath.regex.RegularExpression;
  *                    or: BFPgm@w.hgw<br />
  *                    or: 2NF@MQng.Gct<br />
  * <br />
- * @author uwe geercken - uwe.geercken@datamelt.com
+ * @author uwe geercken - uwe.geercken@web.de
  *
  */
 public class RegularExpressionDataGenerator
@@ -56,8 +54,7 @@ public class RegularExpressionDataGenerator
 	 */
 	public boolean checkTestdata(String testdata,String regularExpressionPattern)
 	{
-		RegularExpression ex = new RegularExpression(regularExpressionPattern);
-		return ex.matches(testdata);
+		return regularExpressionPattern.matches(testdata);
 	}
 	
 	private String processPattern(String pattern)

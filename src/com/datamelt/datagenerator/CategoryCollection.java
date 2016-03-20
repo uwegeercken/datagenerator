@@ -6,7 +6,7 @@ import java.util.ArrayList;
  * class to collect categories and the words assigned to them
  * in a collection.<br />
  * 
- * @author uwe geercken - uwe.geercken@datamelt.com
+ * @author uwe geercken - uwe.geercken@web.de
  *
  */
 public class CategoryCollection

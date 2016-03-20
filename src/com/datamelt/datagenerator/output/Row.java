@@ -8,17 +8,17 @@ import java.util.HashMap;
  * contains 1 or many fields. the fields will be put together
  * to build either a delimited row or a fixed length row.
  * 
- * @author uwe geercken - uwe.geercken@datamelt.com
+ * @author uwe geercken - uwe.geercken@web.de
  */
 public class Row
 {
 	private ArrayList <Field> fields = new ArrayList <Field>();
+	HashMap <String,Field> referencedFields = new HashMap<String,Field>();
 	private int type;
 	private String seperator = SEPERATOR_SEMICOLON;
 	
 	public static final int TYPE_DELIMITED    = 0;
 	public static final int TYPE_FIXED_LENGTH = 1;
-	public static final int TYPE_JSON = 2;
 	
 	public static final String SEPERATOR_SEMICOLON = ";";
 	
@@ -74,10 +74,13 @@ public class Row
 		for (int i=0;i<fields.size();i++)
 		{
 			Field field = fields.get(i);
-			buffer.append(field.getValue());
-			if(type==TYPE_DELIMITED)
+			if(field.getOutput())
 			{
-				buffer.append(seperator);
+				buffer.append(field.getValue());
+				if(type==TYPE_DELIMITED)
+				{
+					buffer.append(seperator);
+				}
 			}
 		}
 		String value = buffer.toString();
@@ -132,28 +135,16 @@ public class Row
 	
 	/**
 	 * returns a HashMap of Field objects that are used as referenced
-	 * by other fields. these will be reused.
+	 * by other fields. these may be reused.
 	 * 
 	 */
 	public HashMap <String,Field> getReferencedFields()
 	{
-		HashMap <String,Field> map = new HashMap();
-		for (int i=0;i<fields.size();i++)
-		{
-			Field field = fields.get(i);
-			// cache the field, if it carries an id. this means that it will be 
-			// reused by other fields
-			if(field.getId()!=null && !field.getId().equals(""))
-			{
-				Field cachedField = new Field();
-				cachedField.setId(field.getId());
-				cachedField.setType(field.getType());
-				cachedField.setPattern(field.getPattern());
-				cachedField.setLength(field.getLength());
-				cachedField.setFillWithSpaces(field.isFillWithSpaces());
-				map.put(cachedField.getId(), cachedField);
-			}
-		}
-		return map;
+		return referencedFields;
+	}
+
+	public void setReferencedFields(HashMap<String, Field> referencedFields)
+	{
+		this.referencedFields = referencedFields;
 	}
 }

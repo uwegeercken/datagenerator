@@ -8,7 +8,10 @@ import java.io.FileReader;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Properties;
+
+import org.xml.sax.SAXException;
 
 import com.datamelt.datagenerator.output.Field;
 import com.datamelt.datagenerator.output.Row;
@@ -77,33 +80,33 @@ import com.datamelt.datagenerator.util.Utility;
  * <br />
  * all arguments can be directly passed to the program or specified in the properties file<br />
  * <br />
- * last update: 2011-05-26, copyright: uwe geercken<br />
+ * last update: 2016-03-20, copyright: uwe geercken<br />
  * 
- * @author uwe geercken - uwe.geercken@datamelt.com
+ * @author uwe geercken - uwe.geercken@web.de
  *
  */
 public class DataCreator 
 {
-	private static final String APPLICATION_VERSION_NUMBER = "version 0.28";
+	private static final String APPLICATION_VERSION_NUMBER = "version 1.0";
 	
 	public static final String CATEGORY_FILE_EXTENSION = ".category";
 	
 	private CategoryCollection collection = new CategoryCollection();
 
-	private static PrintStream out 				     = System.out;
-	private static String outputfile;
-	private static long numberOfOutputLines 	     = 1; //default=1
-	private static boolean verbose                   = false;
-	private static int dataFormat				     = 0; // default=0
-	private static long processedLinesOutputInterval;
-	private static int maximumYear				     = Utility.DEFAULT_MAXDATE_YEAR;
-	private static int minimumYear				     = Utility.DEFAULT_MINDATE_YEAR;
+	private PrintStream out 				    = System.out;
+	private String outputfile;
+	private long numberOfOutputLines 	     	= 10; //default=10
+	private boolean verbose                   	= false;
+	private int dataFormat				     	= 0; // default=0
+	private long processedLinesOutputInterval;
+	private int maximumYear				     	= Utility.DEFAULT_MAXDATE_YEAR;
+	private int minimumYear				     	= Utility.DEFAULT_MINDATE_YEAR;
 	
 	long maxMilliSeconds;
 	long minMilliSeconds;
 	
-	private static String categoryFilesFolder;
-	private static String rowlayoutFile;
+	private String categoryFilesFolder;
+	private String rowlayoutFile;
 	
 	public static final String PROPERTY_NUMBER_OF_OUTPUT_LINES	        = "numberofoutputlines";
 	public static final String PROPERTY_PROCESSED_LINES_OUTPUT_INTERVAL	= "outputinterval";
@@ -117,32 +120,42 @@ public class DataCreator
 	public static final String PROPERTY_POSSIBLE_CHARACTERS		        = "possiblecharacters";
 	
 	public static final String PROPERTIES_FILE					        = "datagenerator.properties";
-	
+
+	// HashMap contains fields that are referenced by other fields
+	private HashMap <String,Field> referencedFields;
+
 	public static void main(String[] args) throws Exception
 	{
-        // if no argument is present
-		if(args==null || args.length==0 )
-		{
-			// load properties from file
-			loadProperties(PROPERTIES_FILE);
-			
-			DataCreator creator = new DataCreator();
-	        creator.generate();
-		}
+		DataCreator creator = new DataCreator();
+		
+		
 		// if help was requested
-		else if (args[0].equals("-h") || args[0].equals("--help"))
+		if (args !=null && args.length>0)
 		{
-			help();
+			if(args[0].equals("-h") || args[0].equals("--help"))
+			{
+				help();
+				
+			}
+			else
+			{
+				// load properties from file if there is such a file
+				creator.loadProperties(PROPERTIES_FILE);
+				
+				//parse any arguments passed to the program
+				creator.parseArguments(args);
+		        
+		        creator.generate();
+			}
 		}
-		// otherwise parse the arguments
 		else
 		{
-			parseArguments(args);
-	        
-	        DataCreator creator = new DataCreator();
+			// load properties from file if there is such a file
+			creator.loadProperties(PROPERTIES_FILE);
+			
 	        creator.generate();
+
 		}
-		
 	}
 	
 	/**
@@ -153,7 +166,7 @@ public class DataCreator
 		return APPLICATION_VERSION_NUMBER;
 	}
 	
-	private void generate() throws Exception
+	public void generate() throws Exception
 	{
         // set the output destination if one was specified
 		if(outputfile!=null && !outputfile.trim().equals(""))
@@ -161,20 +174,77 @@ public class DataCreator
 			out = new PrintStream(new FileOutputStream(new File(outputfile)));
 		}
 
-		// HashMap contains fields that are referenced by others
-		HashMap <String,Field> referenceFieldsMap;
-		
 		// create a parser object instance
 		Parser parser = new Parser();
 		// parse the row layout file, containing the structure of the row and its fields
 		try
 		{
 			parser.parse(rowlayoutFile);
-			referenceFieldsMap = parser.getRow().getReferencedFields();
+			// get the reference fields from the parser
+			referencedFields = parser.getReferencedFields();
+			// get iterator to loop over keyset
+			Iterator <String>it = referencedFields.keySet().iterator();
+			while(it.hasNext())
+					{
+						String key = (String)it.next();
+						// get reference field
+						Field field = referencedFields.get(key);
+						// the following checks are to check the completeness of the field attributes
+						// which is important for further processing
+						if(field.getId()==null)
+						{
+							throw new Exception("reference field of type " + field.getType() + " without id: ");
+						}
+						if(field.getLength()==-1 && field.getType()==Field.TYPE_RANDOM)
+		            	{
+		            		throw new Exception("missing length attribute for reference field: " + field.getId());
+		            	}
+		            	if(field.getType()==Field.TYPE_CATEGORY && field.getCategory()==null)
+		            	{
+		            		throw new Exception("missing category attribute for reference field: " + field.getId());
+		            	}
+		            	if((field.getType()==Field.TYPE_DATETIME || field.getType()==Field.TYPE_REGEX) && field.getPattern()==null)
+		            	{
+		            		throw new Exception("missing pattern attribute for reference field: " + field.getId());
+		            	}
+
+					}
 		}
+		// if there is a parsing exception from the sax parser
+		catch(SAXException se)
+		{
+			System.out.println("error parsing rowlayout file: " + rowlayoutFile + " - " + se.getMessage());
+		}
+		// any other exception
 		catch(Exception e)
 		{
-			throw new Exception("error parsing rowlayout file: " + rowlayoutFile);
+			throw new Exception("error parsing rowlayout file: " + rowlayoutFile + " - " + e.getMessage());
+		}
+		
+		// loop over all fields of the row that are not reference fields
+		// and check them
+		for(int j=0;j<parser.getRow().getFields().size();j++)
+		{
+			// get the field from the parser
+			Field field = (Field)parser.getRow().getFields().get(j);
+			//check the fields if all required attributes have bween specified
+			if(field.getLength()==-1 && field.getType()==Field.TYPE_RANDOM)
+        	{
+        		throw new Exception("missing length attribute for field: " + field.getId());
+        	}
+        	if(field.getType()==Field.TYPE_CATEGORY && field.getCategory()==null)
+        	{
+        		throw new Exception("missing category attribute for field: " + field.getId());
+        	}
+        	if((field.getType()==Field.TYPE_DATETIME || field.getType()==Field.TYPE_REGEX) && field.getPattern()==null)
+        	{
+        		throw new Exception("missing pattern attribute for field: " + field.getId());
+        	}
+        	if(field.getType()==Field.TYPE_REFERENCE && field.getReference()==null)
+        	{
+        		throw new Exception("missing reference attribute for field: " + field.getId());
+        	}
+		
 		}
 		
 		// make sure that the max year is greater or equal the min year
@@ -198,100 +268,47 @@ public class DataCreator
 			processedLinesOutputInterval = numberOfOutputLines / 100;
 		}
 
-		// set counter
+		// get the row object that has been constructed during parsing
+		Row row = parser.getRow();
+		
+		// loop over all fields of the row that do not have an id
+		for(int j=0;j<row.getFields().size();j++)
+		{
+			// get the field
+			Field field = (Field)row.getFields().get(j);
+			generateFieldValue(field);
+		}
+
 		long counter=0;
 		
 		// generate the specified number of rows
 		for (long i=0;i<numberOfOutputLines;i++)
 		{
 			// get the row from the parser object created earlier
-			Row row = parser.getRow();
-			// loop over all fields of the row
+			//Row row = parser.getRow();
+			
+			// loop over all fields of the row that do not have an id
 			for(int j=0;j<row.getFields().size();j++)
 			{
 				// get the field
 				Field field = (Field)row.getFields().get(j);
+				generateFieldValue(field);
+			}
+
+			// we loop over the map of reference fields and set valuegenerated to false
+			// so that for the next row that will be generated, the values of the reference fields will be 
+			// newly calculated
+			Iterator <String>iter = referencedFields.keySet().iterator();
+			while(iter.hasNext())
+			{
+				// get the field key				
 				
-				// check if a field references another one.
-				// if so then set the value of the field to the
-				// value of the reference one
-				if(field.getReference()!=null && !field.getReference().equals(""))
+				String key = (String)iter.next();
+				// get the field
+				Field field = referencedFields.get(key);
+				if(field!=null)
 				{
-					Field referencedField = referenceFieldsMap.get(field.getReference());
-					if(field.getType()== Field.TYPE_DATETIME) 
-					{
-						field.setDateTimeMilliseconds(referencedField.getDateTimeMilliseconds());
-						field.formatDateTimeValue();
-					}
-					else
-					{
-						field.setValue(referencedField.getValue());
-					}
-				}
-				else
-				{
-					// if the category is not null, meaning it was specified in the xml file,
-					// we get a random word from that category file that is specified in the
-					// field tag
-					if(field.getType()== Field.TYPE_CATEGORY)
-					{
-						// get the applicable category
-						Category category = (Category)collection.get(field.getCategory());
-						// if the category does not exist, try to load it
-						if(category==null)
-						{
-							String path = checkTrailingSlash(categoryFilesFolder);
-							String filename = field.getCategory() + CATEGORY_FILE_EXTENSION; 
-							try
-							{
-								File file = new File(path + filename);
-								// load category data
-								loadCategoryFile(file);
-								category = (Category)collection.get(field.getCategory());
-								// generate how often the category will be used
-								generateCategoryUsage(row, category);
-							}
-							catch(FileNotFoundException ex)
-							{
-								throw new Exception ("category file not found: " + filename);
-							}
-							catch (Exception ex)
-							{
-								throw new Exception ("error loading file: " + filename);
-							}
-						}
-						
-						// get a random word from that category
-						field.setValue(category.getRandomWord());
-					}
-					else if(field.getType()== Field.TYPE_REGEX)
-					{
-						field.generateRegularExpressionValue();
-					}
-					else if(field.getType()== Field.TYPE_RANDOM) 
-					{
-						// generate random value
-						field.generateRandomValue();
-					}
-					else if(field.getType()== Field.TYPE_DATETIME) 
-					{
-						// generate random value
-						field.generateDateTimeValue(minMilliSeconds,maxMilliSeconds);
-						field.formatDateTimeValue();
-					}
-					
-					else // if no type was specified for the field in the xml file we genrate a exception
-					{
-						throw new Exception("undefined type of field: " + field.getType());
-					}
-					
-					if(field.getId()!=null && !field.getId().equals(""))
-					{
-						Field referencedField = referenceFieldsMap.get(field.getId());
-						referencedField.setDateTimeMilliseconds(field.getDateTimeMilliseconds());
-						referencedField.setValue(field.getValue());
-					}
-					
+					field.setValueGenerated(false);
 				}
 			}
 			// all fields have been processed. the output will go to console or file
@@ -313,6 +330,159 @@ public class DataCreator
 		// close the output stream
 		out.close();
 	}
+	
+	/**
+	 * sets the field value to the value of the field it references. the reference to another field is
+	 * specified in the relevant row layout file. see the documentation for further details
+	 * 
+	 * if it references multiple fields the values of the fields are concatenated. multiple
+	 * referenced fields have to be seperated using a slash character (/).
+	 * if a reference specified is not existing, it will be treated as a fixed string and
+	 * concatenated to the rest of the values.
+	 * 
+	 * for datetime fields the original datetime value of the reference field will be used. this
+	 * means that seperate fields/columns can be based on the same date, which will result in consistent
+	 * datetime values across the columns.
+	 * 
+	 * e.g. reference to one field:
+	 * 
+	 * 		reference="date1"
+	 * 
+	 * e.g. reference to two fields:
+	 * 
+	 * 		reference="date1/date2"
+	 * 
+	 * e.g. reference to two fields with a fixed string in between
+	 * 
+	 * 		reference="date1/-sometext-/date2"
+	 * 
+	 * the field it references to needs to be specified in the xml file as follows:
+	 * 
+	 * e.g.	id="date1"
+	 */
+	private String getReferencedFieldValue(Field field) throws Exception
+	{
+		// the reference can be made to multiple fields. to achieve this,
+		// devide the references by a slash character (/).
+		String [] references = field.getReference().split("/");
+		StringBuffer referenceValueBuffer= new StringBuffer();
+		// for each of the references, we try to get the value of the referenced
+		// field
+		for(int f=0;f<references.length;f++)
+		{
+			Field referencedField = referencedFields.get(references[f]);
+			// if the reference does not exist, we take the name (value) of the reference
+			// as the value for the field referencing the other field. this allows to define
+			// a constant value that is in turn used as a devider.
+			if(referencedField!=null)
+			{
+				// if the reference exists but the value and has not been generated yet
+				if(referencedField.getValueGenerated()==false)
+				{
+					generateFieldValue(referencedField);
+					referencedField.setValueGenerated(true);
+				}
+				// if the field is a datetime type field, we get the value from the
+				// referenced field and apply the requested pattern to it. this way the
+				// date basis the referenced field and this field are using is the same.
+				if(referencedField.getType()== Field.TYPE_DATETIME && field.getType()!= Field.TYPE_REFERENCE) 
+				{
+					field.setDateTimeMilliseconds(referencedField.getDateTimeMilliseconds());
+					if(field.getPattern()==null)
+					{
+						field.setPattern(referencedField.getPattern());
+					}
+					referenceValueBuffer.append(field.formatDateTimeValue());
+				}
+				else
+				{
+					referenceValueBuffer.append(referencedField.getValue());
+				}
+			}
+			else
+			{
+				referenceValueBuffer.append(references[f]);
+			}
+		}
+		// set the value of the field as generated above. if the reference is not existing
+		// an empty string will be returned as the value
+		return referenceValueBuffer.toString();
+		
+	}
+	
+	/**
+	 * the field passed to this method is a regular field not referencing
+	 * another field.
+	 * based on the type of field the value is generated
+	 * 
+	 */
+	private void generateFieldValue(Field field) throws Exception
+	{
+		// if the category is not null, meaning it was specified in the xml file,
+		// we get a random word from that category file that is specified in the
+		// field tag
+		if(field.getType()== Field.TYPE_CATEGORY)
+		{
+			// get the applicable category
+			Category category = (Category)collection.get(field.getCategory());
+			// if the category does not exist, try to load it
+			if(category==null)
+			{
+				String path = checkTrailingSlash(categoryFilesFolder);
+				String filename = field.getCategory() + CATEGORY_FILE_EXTENSION; 
+				try
+				{
+					File file = new File(path + filename);
+					// load category data
+					loadCategoryFile(file);
+					category = (Category)collection.get(field.getCategory());
+					// generate how often the category will be used
+					//generateCategoryUsage(row, category);
+				}
+				catch(FileNotFoundException ex)
+				{
+					throw new Exception ("category file not found: " + filename);
+				}
+				catch (Exception ex)
+				{
+					throw new Exception ("error loading file: " + filename);
+				}
+			}
+			
+			// get a random word from that category
+			field.setValue(category.getRandomWord());
+		}
+		else if(field.getType()== Field.TYPE_REGEX)
+		{
+			field.generateRegularExpressionValue();
+		}
+		else if(field.getType()== Field.TYPE_RANDOM) 
+		{
+			// generate random value
+			field.generateRandomValue();
+		}
+		else if(field.getType() == Field.TYPE_REFERENCE || (field.getReferenceField()==true && field.getReference()!=null)) 
+		{
+			// generate random value
+			field.setValue(getReferencedFieldValue(field));
+		}
+		else if(field.getType()== Field.TYPE_DATETIME )
+		{
+			if(field.getReference()==null)
+			{
+				// generate random value
+				field.generateDateTimeValue(minMilliSeconds,maxMilliSeconds);
+				
+			}
+			field.setValue(field.formatDateTimeValue());
+		}
+		
+		else // if no type was specified for the field in the xml file we genrate a exception
+		{
+			throw new Exception("undefined type of field: " + field.getType());
+		}
+	}		
+		
 	
 	
 	/**
@@ -363,6 +533,7 @@ public class DataCreator
 	    		cat.addWord(line.trim());
 	    	}
 	    }
+	    reader.close();
 	    collection.add(cat);
 	}
 	
@@ -373,7 +544,7 @@ public class DataCreator
 			Field field = (Field)row.getFields().get(i);
 			if(field.getType()==Field.TYPE_CATEGORY)
 			{
-				if(field.getCategory()!=null && field.getCategory().equals(category.getType()))
+				if(field.getCategory().equals(category.getType()))
 				{
 					category.setNumberOfUsage(category.getNumberOfUsage()+1);
 				}
@@ -385,7 +556,7 @@ public class DataCreator
 	/**
 	 *	parses the arguments that where passed to this program 
 	 */
-	private static void parseArguments(String args[]) throws Exception
+	private void parseArguments(String args[]) throws Exception
 	{
 		
 		for(int i=0;i<args.length;i++)
@@ -435,56 +606,64 @@ public class DataCreator
 		
 		if(categoryFilesFolder==null)
 		{
-			throw new Exception("argument [-c] (category files folder)must be specified as an argument");
+			throw new Exception("argument [-c] (category files folder) must be specified as an argument or in the properties file");
 		}
 		if(rowlayoutFile==null)
 		{
-			throw new Exception("argument [-l] (row layout file) must be specified as an argument");
+			throw new Exception("argument [-l] (row layout file) must be specified as an argument or in the properties file");
 		}
 
 	}
 	
 	/**
-     * load the properties for the datagenerator
+     * load the properties from the file datagenerator.properties
+     * 
+     * a check is done if the file exists. in case the file does not exist, nothing
+     * is done.
      */
-    private static void loadProperties(String filename) throws Exception
+    private void loadProperties(String filename) throws Exception
 	{
-		InputStream inputStream = DataCreator.class.getResourceAsStream("/" + PROPERTIES_FILE);
-		
-		Properties props = new Properties();
-		props.load(inputStream);
-		
-		numberOfOutputLines = Long.parseLong(props.getProperty(PROPERTY_NUMBER_OF_OUTPUT_LINES));
-		categoryFilesFolder = props.getProperty(PROPERTY_CATEGORY_FILES_FOLDER);
-		rowlayoutFile = props.getProperty(PROPERTY_ROW_LAYOUT_FILE);
-		outputfile = props.getProperty(PROPERTY_OUTPUTFILE);
-		if(props.getProperty(PROPERTY_MAXIMUMYEAR)!=null)
+		//System.out.println("loading properties: " + filename);
+    	File f = new File(filename);
+		if(f.exists() && f.isFile())
 		{
-			maximumYear = Integer.parseInt(props.getProperty(PROPERTY_MAXIMUMYEAR));
-		}
-		if(props.getProperty(PROPERTY_MINIMUMYEAR)!=null)
-		{
-			minimumYear = Integer.parseInt(props.getProperty(PROPERTY_MINIMUMYEAR));
-		}
-		if(props.getProperty(PROPERTY_DATAFORMAT)!=null)
-		{
-			dataFormat = Integer.parseInt(props.getProperty(PROPERTY_DATAFORMAT));
-		}
-		if(props.getProperty(PROPERTY_VERBOSE)!=null)
-		{
-			verbose = Boolean.parseBoolean(props.getProperty(PROPERTY_VERBOSE));
-		}
-	    if(props.getProperty(PROPERTY_POSSIBLE_CHARACTERS)!=null)
-	    {
-	    	Field.setPossibleCharacters(props.getProperty(PROPERTY_POSSIBLE_CHARACTERS));
-	    }
-		if(categoryFilesFolder==null)
-		{
-			throw new Exception("[categoryfilesfolder] unspecified in " + PROPERTIES_FILE);
-		}
-		if(rowlayoutFile==null)
-		{
-			throw new Exception("[rowlayoutfile] unspecified in " + PROPERTIES_FILE);
+	    	InputStream inputStream = DataCreator.class.getResourceAsStream("/" + PROPERTIES_FILE);
+			
+			Properties props = new Properties();
+			props.load(inputStream);
+			
+			numberOfOutputLines = Long.parseLong(props.getProperty(PROPERTY_NUMBER_OF_OUTPUT_LINES));
+			categoryFilesFolder = props.getProperty(PROPERTY_CATEGORY_FILES_FOLDER);
+			rowlayoutFile = props.getProperty(PROPERTY_ROW_LAYOUT_FILE);
+			outputfile = props.getProperty(PROPERTY_OUTPUTFILE);
+			if(props.getProperty(PROPERTY_MAXIMUMYEAR)!=null)
+			{
+				maximumYear = Integer.parseInt(props.getProperty(PROPERTY_MAXIMUMYEAR));
+			}
+			if(props.getProperty(PROPERTY_MINIMUMYEAR)!=null)
+			{
+				minimumYear = Integer.parseInt(props.getProperty(PROPERTY_MINIMUMYEAR));
+			}
+			if(props.getProperty(PROPERTY_DATAFORMAT)!=null)
+			{
+				dataFormat = Integer.parseInt(props.getProperty(PROPERTY_DATAFORMAT));
+			}
+			if(props.getProperty(PROPERTY_VERBOSE)!=null)
+			{
+				verbose = Boolean.parseBoolean(props.getProperty(PROPERTY_VERBOSE));
+			}
+		    if(props.getProperty(PROPERTY_POSSIBLE_CHARACTERS)!=null)
+		    {
+		    	Field.setPossibleCharacters(props.getProperty(PROPERTY_POSSIBLE_CHARACTERS));
+		    }
+			if(categoryFilesFolder==null)
+			{
+				throw new Exception("[categoryfilesfolder] unspecified in " + PROPERTIES_FILE);
+			}
+			if(rowlayoutFile==null)
+			{
+				throw new Exception("[rowlayoutfile] unspecified in " + PROPERTIES_FILE);
+			}
 		}
 		
 	}
@@ -506,7 +685,87 @@ public class DataCreator
     	}
     }
 
-    /**
+    public String getOutputfile() 
+    {
+		return outputfile;
+	}
+
+	public void setOutputfile(String outputfile) 
+	{
+		this.outputfile = outputfile;
+	}
+
+	public long getNumberOfOutputLines() 
+	{
+		return numberOfOutputLines;
+	}
+
+	public void setNumberOfOutputLines(long numberOfOutputLines) 
+	{
+		this.numberOfOutputLines = numberOfOutputLines;
+	}
+
+	public int getDataFormat() 
+	{
+		return dataFormat;
+	}
+
+	public void setDataFormat(int dataFormat) 
+	{
+		this.dataFormat = dataFormat;
+	}
+
+	public long getProcessedLinesOutputInterval() 
+	{
+		return processedLinesOutputInterval;
+	}
+
+	public void setProcessedLinesOutputInterval(long processedLinesOutputInterval) 
+	{
+		this.processedLinesOutputInterval = processedLinesOutputInterval;
+	}
+
+	public int getMaximumYear() 
+	{
+		return maximumYear;
+	}
+
+	public void setMaximumYear(int maximumYear) 
+	{
+		this.maximumYear = maximumYear;
+	}
+
+	public int getMinimumYear() 
+	{
+		return minimumYear;
+	}
+
+	public void setMinimumYear(int minimumYear) 
+	{
+		this.minimumYear = minimumYear;
+	}
+
+	public String getCategoryFilesFolder() 
+	{
+		return categoryFilesFolder;
+	}
+
+	public void setCategoryFilesFolder(String categoryFilesFolder) 
+	{
+		this.categoryFilesFolder = categoryFilesFolder;
+	}
+
+	public String getRowlayoutFile() 
+	{
+		return rowlayoutFile;
+	}
+
+	public void setRowlayoutFile(String rowlayoutFile) 
+	{
+		this.rowlayoutFile = rowlayoutFile;
+	}
+
+	/**
 	 * displayed in case no argument was specified or when either -h or --help
 	 * was passed as an argument to the program.
 	 *
@@ -515,6 +774,10 @@ public class DataCreator
 	{
 		System.out.println("DataCreator. Program to generate rows of ASCII data, based on word categories in external files, ");
 		System.out.println("a regular expression pattern or randomly generated data.");
+		System.out.println();
+		System.out.println("reference fields may be specified and fields can be constructed by concatenating reference fields.");
+		System.out.println("this helps to define more flexible combinations of values. additionally this way datetime fields may be");
+		System.out.println("specified which are based on the same datetime value, thus giving correct/real datetime values across columns.");
 		System.out.println();
 		System.out.println("usage: java com.datamelt.datagenerator.DataCreator -c=[categories folder] -l=[row layout file] -o=[output file] -n=[number of rows] -f=[dataformat] -p=[possible characters] -m=[maximum year] -i=[minimum year] -v");
 		System.out.println("where: [categories folder] = the path to the folder where the category files area located");
@@ -530,7 +793,7 @@ public class DataCreator
 		System.out.println("         java com.datamelt.datagenerator.DataCreator -c=/home/dummy/categories -l=/home/dummy/rowlayout.xml -n=22500 -f=1 -v");
 		System.out.println("         java com.datamelt.datagenerator.DataCreator -c=/home/dummy/categories -l=/home/dummy/rowlayout.xml -n=22500 -p=ABCDEFGHIJabcdefghij+*öäàé");
 		System.out.println();
-		System.out.println("copyright 2007-2011, uwe geercken - uwe.geercken@datamelt.com, www.datamelt.com");
+		System.out.println("copyright 2007-2016, uwe geercken - uwe.geercken@web.de");
 		
 	}
 }

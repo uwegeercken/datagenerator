@@ -11,7 +11,7 @@ import java.util.Random;
  * of all fruits. or a category of [names] could contain
  * a list of valid first names.<br />
  * <br />
- * @author uwe geercken - uwe.geercken@datamelt.com
+ * @author uwe geercken - uwe.geercken@web.de
  *
  */
 public class Category
