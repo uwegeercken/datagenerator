@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */ 
 package com.datamelt.datagenerator;
 
 import java.io.BufferedReader;
@@ -80,7 +98,7 @@ import com.datamelt.datagenerator.util.Utility;
  * <br />
  * all arguments can be directly passed to the program or specified in the properties file<br />
  * <br />
- * last update: 2016-03-20, copyright: uwe geercken<br />
+ * last update: 2017-03-01, copyright: uwe geercken<br />
  * 
  * @author uwe geercken - uwe.geercken@web.de
  *
@@ -96,6 +114,7 @@ public class DataCreator
 	private PrintStream out 				    = System.out;
 	private String outputfile;
 	private long numberOfOutputLines 	     	= 10; //default=10
+	private String fieldSeparator				= ";"; //default=;
 	private boolean verbose                   	= false;
 	private int dataFormat				     	= 0; // default=0
 	private long processedLinesOutputInterval;
@@ -118,8 +137,12 @@ public class DataCreator
 	public static final String PROPERTY_VERBOSE					        = "verbose";
 	public static final String PROPERTY_DATAFORMAT				        = "format";
 	public static final String PROPERTY_POSSIBLE_CHARACTERS		        = "possiblecharacters";
+	public static final String PROPERTY_OUTPUT_FIELD_SEPARATOR	        = "fieldseparator";
 	
 	public static final String PROPERTIES_FILE					        = "datagenerator.properties";
+
+	// create a parser object instance
+	Parser parser = new Parser();
 
 	// HashMap contains fields that are referenced by other fields
 	private HashMap <String,Field> referencedFields;
@@ -132,6 +155,7 @@ public class DataCreator
 		// if help was requested
 		if (args !=null && args.length>0)
 		{
+			
 			if(args[0].equals("-h") || args[0].equals("--help"))
 			{
 				help();
@@ -145,7 +169,8 @@ public class DataCreator
 				//parse any arguments passed to the program
 				creator.parseArguments(args);
 		        
-		        creator.generate();
+				creator.parseRowLayoutFile();				
+		        creator.generateRows();
 			}
 		}
 		else
@@ -153,7 +178,8 @@ public class DataCreator
 			// load properties from file if there is such a file
 			creator.loadProperties(PROPERTIES_FILE);
 			
-	        creator.generate();
+			creator.parseRowLayoutFile();				
+	        creator.generateRows();
 
 		}
 	}
@@ -166,49 +192,131 @@ public class DataCreator
 		return APPLICATION_VERSION_NUMBER;
 	}
 	
-	public void generate() throws Exception
+	public String generateRow() throws Exception
 	{
-        // set the output destination if one was specified
-		if(outputfile!=null && !outputfile.trim().equals(""))
+		// get the row object that has been constructed during parsing
+		Row row = parser.getRow();
+		row.setSeparator(fieldSeparator); 
+		
+		// loop over all fields of the row that do not have an id
+		for(int j=0;j<row.getFields().size();j++)
 		{
-			out = new PrintStream(new FileOutputStream(new File(outputfile)));
+			// get the field
+			Field field = (Field)row.getFields().get(j);
+			generateFieldValue(field);
 		}
 
-		// create a parser object instance
-		Parser parser = new Parser();
+		// we loop over the map of reference fields and set valuegenerated to false
+		// so that for the next row that will be generated, the values of the reference fields will be 
+		// newly calculated
+		Iterator <String>iter = referencedFields.keySet().iterator();
+		while(iter.hasNext())
+		{
+			// get the field key				
+			
+			String key = (String)iter.next();
+			// get the field
+			Field field = referencedFields.get(key);
+			if(field!=null)
+			{
+				field.setValueGenerated(false);
+			}
+		}
+
+		return format(row.getValue());
+	}
+
+	public void parseRowLayoutFile(String rowlayoutFile) throws Exception
+	{
+		this.rowlayoutFile = rowlayoutFile;
+		this.parseRowLayoutFile();
+		
+	}
+	
+	public void parseRowLayoutFile() throws Exception
+	{
 		// parse the row layout file, containing the structure of the row and its fields
 		try
 		{
 			parser.parse(rowlayoutFile);
 			// get the reference fields from the parser
 			referencedFields = parser.getReferencedFields();
+			
 			// get iterator to loop over keyset
 			Iterator <String>it = referencedFields.keySet().iterator();
 			while(it.hasNext())
-					{
-						String key = (String)it.next();
-						// get reference field
-						Field field = referencedFields.get(key);
-						// the following checks are to check the completeness of the field attributes
-						// which is important for further processing
-						if(field.getId()==null)
-						{
-							throw new Exception("reference field of type " + field.getType() + " without id: ");
-						}
-						if(field.getLength()==-1 && field.getType()==Field.TYPE_RANDOM)
-		            	{
-		            		throw new Exception("missing length attribute for reference field: " + field.getId());
-		            	}
-		            	if(field.getType()==Field.TYPE_CATEGORY && field.getCategory()==null)
-		            	{
-		            		throw new Exception("missing category attribute for reference field: " + field.getId());
-		            	}
-		            	if((field.getType()==Field.TYPE_DATETIME || field.getType()==Field.TYPE_REGEX) && field.getPattern()==null)
-		            	{
-		            		throw new Exception("missing pattern attribute for reference field: " + field.getId());
-		            	}
+			{
+				String key = (String)it.next();
+				// get reference field
+				Field field = referencedFields.get(key);
+				// the following checks are to check the completeness of the field attributes
+				// which is important for further processing
+				if(field.getId()==null)
+				{
+					throw new Exception("reference field of type " + field.getType() + " without id: ");
+				}
+				if(field.getLength()==-1 && field.getType()==Field.TYPE_RANDOM)
+            	{
+            		throw new Exception("missing length attribute for reference field: " + field.getId());
+            	}
+            	if(field.getType()==Field.TYPE_CATEGORY && field.getCategory()==null)
+            	{
+            		throw new Exception("missing category attribute for reference field: " + field.getId());
+            	}
+            	if((field.getType()==Field.TYPE_DATETIME || field.getType()==Field.TYPE_REGEX) && field.getPattern()==null)
+            	{
+            		throw new Exception("missing pattern attribute for reference field: " + field.getId());
+            	}
 
-					}
+			}
+			
+			// loop over all fields of the row that are not reference fields
+			// and check them
+			for(int j=0;j<parser.getRow().getFields().size();j++)
+			{
+				// get the field from the parser
+				Field field = (Field)parser.getRow().getFields().get(j);
+				//check the fields if all required attributes have bween specified
+				if(field.getLength()==-1 && field.getType()==Field.TYPE_RANDOM)
+	        	{
+	        		throw new Exception("missing length attribute for field: " + field.getId());
+	        	}
+	        	if(field.getType()==Field.TYPE_CATEGORY && field.getCategory()==null)
+	        	{
+	        		throw new Exception("missing category attribute for field: " + field.getId());
+	        	}
+	        	if((field.getType()==Field.TYPE_DATETIME || field.getType()==Field.TYPE_REGEX) && field.getPattern()==null)
+	        	{
+	        		throw new Exception("missing pattern attribute for field: " + field.getId());
+	        	}
+	        	if(field.getType()==Field.TYPE_REFERENCE && field.getReference()==null)
+	        	{
+	        		throw new Exception("missing reference attribute for field: " + field.getId());
+	        	}
+			
+			}
+
+			// make sure that the max year is greater or equal the min year
+			if(maximumYear<minimumYear)
+			{
+				maximumYear = minimumYear;
+			}
+			// get the long value for the largest allowable date value
+			if(maximumYear>0)
+			{
+				maxMilliSeconds = Utility.getMaxDate(maximumYear); 
+			}
+			// get the long value for the smallest allowable date value
+			if(minimumYear>0)
+			{
+				minMilliSeconds = Utility.getMinDate(minimumYear); 
+			}
+			
+			if(processedLinesOutputInterval<=0)
+			{
+				processedLinesOutputInterval = numberOfOutputLines / 100;
+			}
+
 		}
 		// if there is a parsing exception from the sax parser
 		catch(SAXException se)
@@ -219,64 +327,15 @@ public class DataCreator
 		catch(Exception e)
 		{
 			throw new Exception("error parsing rowlayout file: " + rowlayoutFile + " - " + e.getMessage());
-		}
-		
-		// loop over all fields of the row that are not reference fields
-		// and check them
-		for(int j=0;j<parser.getRow().getFields().size();j++)
+		}	
+	}
+	
+	public void generateRows() throws Exception
+	{
+		// set the output destination if one was specified
+		if(outputfile!=null && !outputfile.trim().equals(""))
 		{
-			// get the field from the parser
-			Field field = (Field)parser.getRow().getFields().get(j);
-			//check the fields if all required attributes have bween specified
-			if(field.getLength()==-1 && field.getType()==Field.TYPE_RANDOM)
-        	{
-        		throw new Exception("missing length attribute for field: " + field.getId());
-        	}
-        	if(field.getType()==Field.TYPE_CATEGORY && field.getCategory()==null)
-        	{
-        		throw new Exception("missing category attribute for field: " + field.getId());
-        	}
-        	if((field.getType()==Field.TYPE_DATETIME || field.getType()==Field.TYPE_REGEX) && field.getPattern()==null)
-        	{
-        		throw new Exception("missing pattern attribute for field: " + field.getId());
-        	}
-        	if(field.getType()==Field.TYPE_REFERENCE && field.getReference()==null)
-        	{
-        		throw new Exception("missing reference attribute for field: " + field.getId());
-        	}
-		
-		}
-		
-		// make sure that the max year is greater or equal the min year
-		if(maximumYear<minimumYear)
-		{
-			maximumYear = minimumYear;
-		}
-		// get the long value for the largest allowable date value
-		if(maximumYear>0)
-		{
-			maxMilliSeconds = Utility.getMaxDate(maximumYear); 
-		}
-		// get the long value for the smallest allowable date value
-		if(minimumYear>0)
-		{
-			minMilliSeconds = Utility.getMinDate(minimumYear); 
-		}
-		
-		if(processedLinesOutputInterval<=0)
-		{
-			processedLinesOutputInterval = numberOfOutputLines / 100;
-		}
-
-		// get the row object that has been constructed during parsing
-		Row row = parser.getRow();
-		
-		// loop over all fields of the row that do not have an id
-		for(int j=0;j<row.getFields().size();j++)
-		{
-			// get the field
-			Field field = (Field)row.getFields().get(j);
-			generateFieldValue(field);
+			out = new PrintStream(new FileOutputStream(new File(outputfile)));
 		}
 
 		long counter=0;
@@ -284,35 +343,7 @@ public class DataCreator
 		// generate the specified number of rows
 		for (long i=0;i<numberOfOutputLines;i++)
 		{
-			// get the row from the parser object created earlier
-			//Row row = parser.getRow();
-			
-			// loop over all fields of the row that do not have an id
-			for(int j=0;j<row.getFields().size();j++)
-			{
-				// get the field
-				Field field = (Field)row.getFields().get(j);
-				generateFieldValue(field);
-			}
-
-			// we loop over the map of reference fields and set valuegenerated to false
-			// so that for the next row that will be generated, the values of the reference fields will be 
-			// newly calculated
-			Iterator <String>iter = referencedFields.keySet().iterator();
-			while(iter.hasNext())
-			{
-				// get the field key				
-				
-				String key = (String)iter.next();
-				// get the field
-				Field field = referencedFields.get(key);
-				if(field!=null)
-				{
-					field.setValueGenerated(false);
-				}
-			}
-			// all fields have been processed. the output will go to console or file
-			out.println(format(row.getValue()));
+			out.println(generateRow());
 			
 			// advance the counter by one
 			counter++;
@@ -325,7 +356,6 @@ public class DataCreator
 					counter=0;
 				}
 			}
-
 		}
 		// close the output stream
 		out.close();
@@ -441,11 +471,11 @@ public class DataCreator
 				}
 				catch(FileNotFoundException ex)
 				{
-					throw new Exception ("category file not found: " + filename);
+					throw new Exception ("category file not found: " + path + filename);
 				}
 				catch (Exception ex)
 				{
-					throw new Exception ("error loading file: " + filename);
+					throw new Exception ("error loading file: " + path + filename);
 				}
 			}
 			
@@ -636,6 +666,7 @@ public class DataCreator
 			categoryFilesFolder = props.getProperty(PROPERTY_CATEGORY_FILES_FOLDER);
 			rowlayoutFile = props.getProperty(PROPERTY_ROW_LAYOUT_FILE);
 			outputfile = props.getProperty(PROPERTY_OUTPUTFILE);
+			fieldSeparator = props.getProperty(PROPERTY_OUTPUT_FIELD_SEPARATOR);
 			if(props.getProperty(PROPERTY_MAXIMUMYEAR)!=null)
 			{
 				maximumYear = Integer.parseInt(props.getProperty(PROPERTY_MAXIMUMYEAR));
@@ -664,8 +695,11 @@ public class DataCreator
 			{
 				throw new Exception("[rowlayoutfile] unspecified in " + PROPERTIES_FILE);
 			}
+			if(rowlayoutFile==null)
+			{
+				throw new Exception("[rowlayoutfile] unspecified in " + PROPERTIES_FILE);
+			}
 		}
-		
 	}
     
     /**
@@ -759,10 +793,15 @@ public class DataCreator
 	{
 		return rowlayoutFile;
 	}
-
-	public void setRowlayoutFile(String rowlayoutFile) 
+	
+	public String getFieldSeparator()
 	{
-		this.rowlayoutFile = rowlayoutFile;
+		return fieldSeparator;
+	}
+
+	public void setFieldSeparator(String fieldSeparator)
+	{
+		this.fieldSeparator = fieldSeparator;
 	}
 
 	/**
@@ -793,7 +832,7 @@ public class DataCreator
 		System.out.println("         java com.datamelt.datagenerator.DataCreator -c=/home/dummy/categories -l=/home/dummy/rowlayout.xml -n=22500 -f=1 -v");
 		System.out.println("         java com.datamelt.datagenerator.DataCreator -c=/home/dummy/categories -l=/home/dummy/rowlayout.xml -n=22500 -p=ABCDEFGHIJabcdefghij+*öäàé");
 		System.out.println();
-		System.out.println("copyright 2007-2016, uwe geercken - uwe.geercken@web.de");
+		System.out.println("copyright 2007-2017, uwe geercken - uwe.geercken@web.de");
 		
 	}
 }

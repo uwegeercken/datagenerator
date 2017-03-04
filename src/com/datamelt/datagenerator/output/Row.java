@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */ 
 package com.datamelt.datagenerator.output;
 
 import java.util.ArrayList;
@@ -15,12 +33,12 @@ public class Row
 	private ArrayList <Field> fields = new ArrayList <Field>();
 	HashMap <String,Field> referencedFields = new HashMap<String,Field>();
 	private int type;
-	private String seperator = SEPERATOR_SEMICOLON;
+	private String separator = SEPARATOR_SEMICOLON;
 	
 	public static final int TYPE_DELIMITED    = 0;
 	public static final int TYPE_FIXED_LENGTH = 1;
 	
-	public static final String SEPERATOR_SEMICOLON = ";";
+	public static final String SEPARATOR_SEMICOLON = ";";
 	
 	
 	public Row()
@@ -79,14 +97,14 @@ public class Row
 				buffer.append(field.getValue());
 				if(type==TYPE_DELIMITED)
 				{
-					buffer.append(seperator);
+					buffer.append(separator);
 				}
 			}
 		}
 		String value = buffer.toString();
-		if(type==TYPE_DELIMITED && value.endsWith(seperator))
+		if(type==TYPE_DELIMITED && value.endsWith(separator))
 		{
-			value = value.substring(0,value.length()-seperator.length());
+			value = value.substring(0,value.length()-separator.length());
 		}
 		return value;
 	}
@@ -95,18 +113,18 @@ public class Row
 	 * returns the separator used. only applicable if the type of the
 	 * output row is delimited. 
 	 */
-	public String getSeperator() 
+	public String getSeparator() 
 	{
-		return seperator;
+		return separator;
 	}
 
 	/**
 	 * sets the separator to be used between the fields of a delimited ASCII
 	 * file 
 	 */
-	public void setSeperator(String seperator) 
+	public void setSeparator(String separator) 
 	{
-		this.seperator = seperator;
+		this.separator = separator;
 	}
 
 	/**
