@@ -52,7 +52,7 @@ minimum_year=2014
 # the output file, if you want to have the data in a file.
 # put a comment in front of the line if you want the output
 # to only be sent to the console
-output_file="generated_data.csv"
+##output_file="generated_data.csv"
 
 # to generate some output during processing add the
 # parameter -v
@@ -66,7 +66,7 @@ generator_jar="datagenerator-1.0.jar"
 class_path=".:${generator_jar}"
 
 # run java with the parameters as listed above
-java -cp ${class_path} com.datamelt.datagenerator.DataCreator -c=${folder_categories} -l=${layout_file} -n=${number_of_rows} -e=${output_interval} -p=${possible_values} -f=${dataformat} -o=${output_file} -m=${maximum_year} -i=${minimum_year} -v
+java -cp ${class_path} com.datamelt.datagenerator.DataCreator -c=${folder_categories} -l=${layout_file} -n=${number_of_rows} -e=${output_interval} -p=${possible_values} -f=${dataformat} -m=${maximum_year} -i=${minimum_year}
 
 
 # if you specify the arguments in a properties file: datagenerator.properties
