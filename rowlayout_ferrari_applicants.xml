@@ -20,20 +20,12 @@
 
 <xml>
 	<references>
-		<field type="datetime" id="date1" pattern="yyyy-MM-dd"/>
-		<field type="datetime" id="year" reference="date1" pattern="yyyy"/>
-		<field type="datetime" id="quarter" reference="date1" pattern="Q"/>
-		<field type="datetime" id="weekday" reference="date1" pattern="EEEE"/>
-		<field type="category" id="airport" category="airport_code"/>
 	</references>
-	<row type="delimited" seperator=";">
-		<field type="category" category="seasons" length="20" />
-		<field type="datetime" pattern="q" length="1" />
-		<field type="random" length="10" />
-		<field type="regex" pattern="www.[a-zA-Z]{8,16}.com" length="30" />
-		<field type="reference" reference="date1" length="10" />
-		<field type="reference" reference="year/-/quarter" length="20" />
-		<field type="reference" reference="weekday" length="10" />
-		<field type="reference" reference="code:/airport/_test" length="20"/>
+	<row type="delimited" seperator=",">
+		<field type="regex" pattern="" length="1" />
+		<field type="category" category="firstnames" length="20" />
+		<field type="regex" pattern="[1-9][0-9]" length="2" />
+		<field type="regex" pattern="[0-1]" length="1" />
+		<field type="regex" pattern="[0-1]" length="1" />
 	</row>
 </xml>

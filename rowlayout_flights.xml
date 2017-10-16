@@ -1,0 +1,19 @@
+<xml> 
+	<references>
+		<field type="datetime" id="date1" pattern="yyyy-MM-dd"/>
+		<field type="datetime" id="time" reference="date1" pattern="HH:mm"/>
+		<field type="datetime" id="year" reference="date1" pattern="yyyy"/>
+		<field type="datetime" id="month" reference="date1" pattern="MM"/>		
+		<field type="datetime" id="day" reference="date1" pattern="dd"/>
+	</references>
+	<row type="delimited" seperator=";"> 
+		<field type="category" category="airport_code" length="3" /> 
+		<field type="category" category="airlines_abbreviated" length="2" /> 
+		<field type="regex" pattern="[0-9]{2,4}" length="4" /> 
+		<field type="reference" reference="year" length="4" />
+		<field type="reference" reference="month" length="2" />
+		<field type="reference" reference="day" length="2" />
+		<field type="reference" reference="time" length="5" />
+	</row> 
+</xml>
+

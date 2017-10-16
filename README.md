@@ -6,8 +6,8 @@ Java command line tool to generate mass data based on word lists (multiple langu
 Data is generated in CSV or fixed length ASCII format. The format and type of the data is defined in the rowlayout.xml file. See the documentation PDF file for detailed instructions.
 
 
-Copyright (C) 2008-2017  Uwe Geercken
-    
+Copyright (C) 2008-2017  Uwe Geercken - uwe.geercken@web.de
+
  Licensed to the Apache Software Foundation (ASF) under one
  or more contributor license agreements.  See the NOTICE file
  distributed with this work for additional information
@@ -29,4 +29,3 @@ uwe geercken
 uwe.geercken@web.de
 
 last update: 2017-03-04
-
