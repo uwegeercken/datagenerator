@@ -45,7 +45,7 @@ public class Generator
 		Random rand = new Random();
 			
 		// calculate a new random long using the modulo operator and the
-		// two values
+		// two given values
 		long randomMilliseconds;
 		do
 		{
