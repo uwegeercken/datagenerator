@@ -50,9 +50,9 @@ public class RegularExpressionDataGenerator
 	public static final String POSSIBLE_VALUES_LOWER_ALPHA     = "abcdefghijklmnopqrstuvwxyz";
 	public static final String POSSIBLE_VALUES_NUMERIC         = "0123456789";
 	
-	private static int SEQUENCE_TYPE_UPPER_ALPHA = 0;
-	private static int SEQUENCE_TYPE_LOWER_ALPHA = 1;
-	private static int SEQUENCE_TYPE_NUMERIC     = 2;
+	private static final int SEQUENCE_TYPE_UPPER_ALPHA = 0;
+	private static final int SEQUENCE_TYPE_LOWER_ALPHA = 1;
+	private static final int SEQUENCE_TYPE_NUMERIC     = 2;
 	
 	/**
 	 *	method returns randomly generated test data according to a given
